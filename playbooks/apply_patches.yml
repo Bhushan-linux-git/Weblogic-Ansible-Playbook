@@ -1,0 +1,42 @@
+---
+- name: Apply WebLogic Patches
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  vars:
+    weblogic_home: "/u01/oracle/weblogic12.2.1.4"
+    patch_dir: "/u01/patches"
+    logs_dir: "/var/log/weblogic_patches"
+
+  tasks:
+    - name: Apply OPatch patch
+      shell: "timeout 300 {{ weblogic_home }}/OPatch/opatch apply -silent"
+      args:
+        chdir: "{{ patch_dir }}/38156117"
+      register: opatch_apply
+
+    - name: Save OPatch patch log
+      copy:
+        content: |
+          === STDOUT ===
+          {{ opatch_apply.stdout | default('') }}
+          === STDERR ===
+          {{ opatch_apply.stderr | default('') }}
+        dest: "{{ logs_dir }}/patch_38156117_{{ ansible_date_time.date }}_{{ ansible_date_time.time }}.log"
+
+    - name: Apply binary patches
+      shell: "timeout 300 {{ weblogic_home }}/OPatch/opatch napply -silent -oh {{ weblogic_home }} -phBaseFile linux64_patchlist.txt"
+      args:
+        chdir: "{{ patch_dir }}/binary_patches"
+      register: binary_apply
+
+    - name: Save binary patch log
+      copy:
+        content: |
+          === STDOUT ===
+          {{ binary_apply.stdout | default('') }}
+          === STDERR ===
+          {{ binary_apply.stderr | default('') }}
+        dest: "{{ logs_dir }}/binary_patch_{{ ansible_date_time.date }}_{{ ansible_date_time.time }}.log"
+

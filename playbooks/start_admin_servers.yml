@@ -1,0 +1,48 @@
+---
+- name: Start all WebLogic Admin Servers
+  hosts: all
+  gather_facts: no
+
+  vars:
+    domains_base: "/u01/oracle/weblogic/user_projects/domains"
+    java_home: "/u01/java/jdk1.8.0_333"
+    logs_dir: "/var/log/weblogic_patches"
+    admin_server_map:
+      domain1: AdminServer1
+      domain2: AdminServer2
+
+  tasks:
+    - name: Check if AdminServer is running
+      shell: |
+        ps -ef | grep -v grep | grep "weblogic.Name={{ admin_server_map[item] }}" || true
+      loop: "{{ admin_server_map.keys() | list }}"
+      register: check_results
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Start missing AdminServers
+      shell: |
+        cd {{ domains_base }}/{{ item.item }}/bin
+        nohup ./startWebLogic.sh >> {{ logs_dir }}/{{ item.item }}_admin.log 2>&1 &
+      loop: "{{ check_results.results }}"
+      when: item.stdout is defined and item.stdout | trim == ""
+      environment:
+        JAVA_HOME: "{{ java_home }}"
+        PATH: "{{ ansible_env.PATH }}"
+      async: 60
+      poll: 0
+      changed_when: true
+
+    - name: Pretty summary of AdminServer status
+      debug:
+        msg: |
+          {% for r in check_results.results %}
+          Domain: {{ r.item }}
+          AdminServer: {{ admin_server_map[r.item] }}
+          Status: {% if (r.stdout | default('') | trim) != '' %}
+            ✅ Running
+          {% else %}
+            🚀 Started
+          {% endif %}
+          {% endfor %}
+
