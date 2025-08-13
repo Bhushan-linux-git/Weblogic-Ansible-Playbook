@@ -1,0 +1,9 @@
+*.retry
+*.log
+/opt/oracle/weblogic/*.log
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+inventory/*.yml
+!inventory/hosts_example.yml
